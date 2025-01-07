@@ -6,8 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
-
-	"github.com/marcboeker/go-duckdb"
+	duckdb "github.com/marcboeker/go-duckdb/src"
 )
 
 // Overload my_length with two user-defined scalar functions.

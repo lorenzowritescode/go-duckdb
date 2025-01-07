@@ -1,4 +1,4 @@
-module github.com/marcboeker/go-duckdb
+module github.com/marcboeker/go-duckdb/src
 
 go 1.23
 

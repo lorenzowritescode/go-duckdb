@@ -4,8 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
-	"github.com/marcboeker/go-duckdb"
+	duckdb "github.com/marcboeker/go-duckdb/src"
 )
 
 type incrementTableUDF struct {

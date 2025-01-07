@@ -4,9 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	duckdb "github.com/marcboeker/go-duckdb/src"
 	"sync"
-
-	"github.com/marcboeker/go-duckdb"
 )
 
 type (

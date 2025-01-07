@@ -3,9 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	duckdb "github.com/marcboeker/go-duckdb/src"
 	"log"
-
-	"github.com/marcboeker/go-duckdb"
 )
 
 func main() {

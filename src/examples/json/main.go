@@ -2,9 +2,8 @@ package main
 
 import (
 	"database/sql"
+	duckdb "github.com/marcboeker/go-duckdb/src"
 	"log"
-
-	"github.com/marcboeker/go-duckdb"
 )
 
 var db *sql.DB
