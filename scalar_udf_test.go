@@ -69,7 +69,6 @@ func constantError(info interface{}, _ []driver.Value) (any, error) {
 	return nil, errors.New("test invalid execution")
 }
 
-// If you did var a interface{} = obj and obj is of type T then you can get it back with var o = a.(T).
 func contextUDF(info interface{}, values []driver.Value) (any, error) {
 	key, isString := values[0].(string)
 	if !isString {
