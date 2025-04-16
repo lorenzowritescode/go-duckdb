@@ -28,7 +28,7 @@ type (
 	contextSUDF       struct{}
 )
 
-func simpleSum(ctx context.Context, values []driver.Value) (any, error) {
+func simpleSum(info interface{}, values []driver.Value) (any, error) {
 	if values[0] == nil || values[1] == nil {
 		return nil, nil
 	}
@@ -36,15 +36,15 @@ func simpleSum(ctx context.Context, values []driver.Value) (any, error) {
 	return val, nil
 }
 
-func constantOne(ctx context.Context, _ []driver.Value) (any, error) {
+func constantOne(info interface{}, _ []driver.Value) (any, error) {
 	return int32(1), nil
 }
 
-func identity(ctx context.Context, values []driver.Value) (any, error) {
+func identity(info interface{}, values []driver.Value) (any, error) {
 	return values[0], nil
 }
 
-func variadicSum(ctx context.Context, values []driver.Value) (any, error) {
+func variadicSum(info interface{}, values []driver.Value) (any, error) {
 	sum := int32(0)
 	for _, val := range values {
 		if val == nil {
@@ -55,7 +55,7 @@ func variadicSum(ctx context.Context, values []driver.Value) (any, error) {
 	return sum, nil
 }
 
-func nilCount(ctx context.Context, values []driver.Value) (any, error) {
+func nilCount(info interface{}, values []driver.Value) (any, error) {
 	count := int32(0)
 	for _, val := range values {
 		if val == nil {
@@ -65,17 +65,19 @@ func nilCount(ctx context.Context, values []driver.Value) (any, error) {
 	return count, nil
 }
 
-func constantError(ctx context.Context, _ []driver.Value) (any, error) {
+func constantError(info interface{}, _ []driver.Value) (any, error) {
 	return nil, errors.New("test invalid execution")
 }
 
-func contextUDF(ctx context.Context, values []driver.Value) (any, error) {
+// If you did var a interface{} = obj and obj is of type T then you can get it back with var o = a.(T).
+func contextUDF(info interface{}, values []driver.Value) (any, error) {
 	key, isString := values[0].(string)
 	if !isString {
 		return nil, errors.New("expected string key")
 	}
 
-	return ctx.Value(key), nil
+	state := info.(*connState)
+	return (*state.currCtx).Value(key), nil
 }
 
 func (*simpleSUDF) Config() ScalarFuncConfig {
@@ -204,7 +206,7 @@ func TestSimpleScalarUDF(t *testing.T) {
 	require.NoError(t, err)
 
 	var udf *simpleSUDF
-	err = RegisterScalarUDF(conn, "my_sum", udf)
+	err = RegisterScalarUDF(conn, "my_sum", udf, nil)
 	require.NoError(t, err)
 
 	var sum *int
@@ -233,11 +235,11 @@ func TestConstantScalarUDF(t *testing.T) {
 	require.NoError(t, err)
 
 	var udf *constantSUDF
-	err = RegisterScalarUDF(conn, "constant_one", udf)
+	err = RegisterScalarUDF(conn, "constant_one", udf, nil)
 	require.NoError(t, err)
 
 	var otherUDF *otherConstantSUDF
-	err = RegisterScalarUDF(conn, "other_constant_one", otherUDF)
+	err = RegisterScalarUDF(conn, "other_constant_one", otherUDF, nil)
 	require.NoError(t, err)
 
 	var one int
@@ -266,7 +268,7 @@ func TestAllTypesScalarUDF(t *testing.T) {
 			require.NoError(t, err)
 
 			var udf *typesSUDF
-			err = RegisterScalarUDF(conn, "my_identity", udf)
+			err = RegisterScalarUDF(conn, "my_identity", udf, nil)
 			require.NoError(t, err)
 
 			var res string
@@ -319,7 +321,7 @@ func TestVariadicScalarUDF(t *testing.T) {
 	require.NoError(t, err)
 
 	var udf *variadicSUDF
-	err = RegisterScalarUDF(conn, "my_variadic_sum", udf)
+	err = RegisterScalarUDF(conn, "my_variadic_sum", udf, nil)
 	require.NoError(t, err)
 
 	var sum *int
@@ -356,7 +358,7 @@ func TestANYScalarUDF(t *testing.T) {
 	require.NoError(t, err)
 
 	var udf *anyTypeSUDF
-	err = RegisterScalarUDF(conn, "my_null_count", udf)
+	err = RegisterScalarUDF(conn, "my_null_count", udf, nil)
 	require.NoError(t, err)
 
 	var count int
@@ -394,30 +396,30 @@ func TestErrScalarUDF(t *testing.T) {
 
 	// Empty name.
 	var emptyNameUDF *simpleSUDF
-	err = RegisterScalarUDF(conn, "", emptyNameUDF)
+	err = RegisterScalarUDF(conn, "", emptyNameUDF, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFCreate.Error(), errScalarUDFNoName.Error())
 
 	// Invalid executor.
 	var errExecutorUDF *errExecutorSUDF
-	err = RegisterScalarUDF(conn, "err_executor_is_nil", errExecutorUDF)
+	err = RegisterScalarUDF(conn, "err_executor_is_nil", errExecutorUDF, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFCreate.Error(), errScalarUDFNoExecutor.Error())
 
 	// Invalid input parameter.
 	var errInputNilUDF *errInputNilSUDF
-	err = RegisterScalarUDF(conn, "err_input_type_is_nil", errInputNilUDF)
+	err = RegisterScalarUDF(conn, "err_input_type_is_nil", errInputNilUDF, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFCreate.Error(), errScalarUDFInputTypeIsNil.Error())
 
 	// Invalid result parameters.
 	var errResultNil *errResultNilSUDF
-	err = RegisterScalarUDF(conn, "err_result_type_is_nil", errResultNil)
+	err = RegisterScalarUDF(conn, "err_result_type_is_nil", errResultNil, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFCreate.Error(), errScalarUDFResultTypeIsNil.Error())
 	var errResultAny *errResultAnySUDF
-	err = RegisterScalarUDF(conn, "err_result_type_is_any", errResultAny)
+	err = RegisterScalarUDF(conn, "err_result_type_is_any", errResultAny, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFCreate.Error(), errScalarUDFResultTypeIsANY.Error())
 
 	// Error during execution.
 	var errExecUDF *errExecSUDF
-	err = RegisterScalarUDF(conn, "err_exec", errExecUDF)
+	err = RegisterScalarUDF(conn, "err_exec", errExecUDF, nil)
 	require.NoError(t, err)
 	row := db.QueryRow(`SELECT err_exec(10, 10) AS res`)
 	testError(t, row.Err(), errAPI.Error())
@@ -425,18 +427,18 @@ func TestErrScalarUDF(t *testing.T) {
 	// Register the same scalar function a second time.
 	// Since RegisterScalarUDF takes ownership of udf, we are now passing nil.
 	var udf *simpleSUDF
-	err = RegisterScalarUDF(conn, "my_sum", udf)
+	err = RegisterScalarUDF(conn, "my_sum", udf, nil)
 	require.NoError(t, err)
-	err = RegisterScalarUDF(conn, "my_sum", udf)
+	err = RegisterScalarUDF(conn, "my_sum", udf, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFCreate.Error())
 
 	// Register a scalar function whose name already exists.
 	var errDuplicateUDF *simpleSUDF
-	err = RegisterScalarUDF(conn, "my_sum", errDuplicateUDF)
+	err = RegisterScalarUDF(conn, "my_sum", errDuplicateUDF, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFCreate.Error())
 
 	// Register a scalar function that is nil.
-	err = RegisterScalarUDF(conn, "my_sum", nil)
+	err = RegisterScalarUDF(conn, "my_sum", nil, nil)
 	testError(t, err, errAPI.Error(), errScalarUDFIsNil.Error())
 }
 
@@ -452,8 +454,13 @@ func TestErrScalarUDFClosedConn(t *testing.T) {
 	closeConnWrapper(t, conn)
 
 	var errClosedConUDF *simpleSUDF
-	err = RegisterScalarUDF(conn, "closed_con", errClosedConUDF)
+	err = RegisterScalarUDF(conn, "closed_con", errClosedConUDF, nil)
 	require.ErrorContains(t, err, sql.ErrConnDone.Error())
+}
+
+type connState struct {
+	conn    *sql.Conn
+	currCtx *context.Context
 }
 
 func TestContextScalarUDF(t *testing.T) {
@@ -464,23 +471,28 @@ func TestContextScalarUDF(t *testing.T) {
 	conn := openConnWrapper(t, db, ctx)
 	defer closeConnWrapper(t, conn)
 
+	state := &connState{conn: conn, currCtx: &ctx}
+
+	// Now these states can live somewhere in the application / connection pool.
+
 	var err error
 	currentInfo, err = NewTypeInfo(TYPE_VARCHAR)
 	require.NoError(t, err)
 
 	var udf *contextSUDF
-	err = RegisterScalarUDF(conn, "context_test", udf)
+	err = RegisterScalarUDF(conn, "context_test", udf, state)
 	require.NoError(t, err)
 
-	var result string
-	row := db.QueryRowContext(ctx, `SELECT context_test('test_key') AS result`)
-	require.NoError(t, row.Scan(&result))
-	require.Equal(t, "test_value", result)
+	var r string
+	state.currCtx = &ctx
+	row := state.conn.QueryRowContext(ctx, `SELECT context_test('test_key') AS result`)
+	require.NoError(t, row.Scan(&r))
+	require.Equal(t, "test_value", r)
 
 	// Test with non-existent key
 	var nilResult *string
-	row = db.QueryRowContext(ctx, `SELECT context_test('non_existent') AS result`)
+	state.currCtx = &ctx
+	row = state.conn.QueryRowContext(ctx, `SELECT context_test('non_existent') AS result`)
 	require.NoError(t, row.Scan(&nilResult))
 	require.Nil(t, nilResult)
 }
-
