@@ -467,11 +467,11 @@ func TestContextScalarUDF(t *testing.T) {
 	db := openDbWrapper(t, ``)
 	defer closeDbWrapper(t, db)
 
-	ctx := context.WithValue(context.Background(), "test_key", "test_value")
-	conn := openConnWrapper(t, db, ctx)
+	registerCtx := context.Background()
+	conn := openConnWrapper(t, db, registerCtx)
 	defer closeConnWrapper(t, conn)
 
-	state := &connState{conn: conn, currCtx: &ctx}
+	state := &connState{conn: conn, currCtx: &registerCtx}
 
 	// Now these states can live somewhere in the application / connection pool.
 
@@ -484,15 +484,16 @@ func TestContextScalarUDF(t *testing.T) {
 	require.NoError(t, err)
 
 	var r string
-	state.currCtx = &ctx
-	row := state.conn.QueryRowContext(ctx, `SELECT context_test('test_key') AS result`)
+	valueCtx := context.WithValue(context.Background(), "test_key", "test_value")
+	state.currCtx = &valueCtx
+	row := state.conn.QueryRowContext(valueCtx, `SELECT context_test('test_key') AS result`)
 	require.NoError(t, row.Scan(&r))
 	require.Equal(t, "test_value", r)
 
 	// Test with non-existent key
 	var nilResult *string
-	state.currCtx = &ctx
-	row = state.conn.QueryRowContext(ctx, `SELECT context_test('non_existent') AS result`)
+	state.currCtx = &valueCtx
+	row = state.conn.QueryRowContext(valueCtx, `SELECT context_test('non_existent') AS result`)
 	require.NoError(t, row.Scan(&nilResult))
 	require.Nil(t, nilResult)
 }
